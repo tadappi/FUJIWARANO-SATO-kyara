@@ -9,122 +9,79 @@
       overflow: hidden;
       background: #222;
     }
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-    }
   </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
-
   <script type="module">
     import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
     import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
     import { GLTFLoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/GLTFLoader.js";
 
-    const container = document.getElementById("canvas-container");
-
-    // シーン
+    // === scene ===
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x222222);
 
-    // カメラ
-    const camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      100
-    );
-    camera.position.set(0, 1.5, 3);
+    // === camera ===
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.3, 3);
 
-    // レンダラー
+    // === renderer ===
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
-    container.appendChild(renderer.domElement);
+    document.body.appendChild(renderer.domElement);
 
-    // ライト
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
-    hemiLight.position.set(0, 2, 0);
-    scene.add(hemiLight);
-
+    // === lights ===
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(3, 5, 2);
+    dirLight.position.set(2, 4, 2);
     scene.add(dirLight);
 
-    // コントロール（マウスで回転・ズーム）
+    // === controls (ユーザー操作は有効のまま。不要なら後で教えてください) ===
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    // モデル読み込み
+    // === load model ===
     const loader = new GLTFLoader();
     let model = null;
 
-    loader.load(
-      "kyara.glb", // kyara.glb と同じフォルダにこの index.html を置く
-      (gltf) => {
-        model = gltf.scene;
+    loader.load("kyara.glb", gltf => {
+      model = gltf.scene;
 
-        // 大きさをある程度そろえる（必要なら調整）
-        model.traverse((obj) => {
-          if (obj.isMesh) {
-            obj.castShadow = true;
-            obj.receiveShadow = true;
-          }
-        });
+      // 中央に移動 & 標準スケール調整
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      model.position.sub(center);
+      const maxAxis = Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(2 / maxAxis);
 
-        // モデルの境界から中央へ移動＆スケーリング
-        const box = new THREE.Box3().setFromObject(model);
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
-
-        // 原点にくるようオフセット
-        model.position.sub(center);
-
-        // だいたい高さが 2 ぐらいになるようにスケール
-        const maxAxis = Math.max(size.x, size.y, size.z);
-        const scale = 2.0 / maxAxis;
-        model.scale.setScalar(scale);
-
-        scene.add(model);
-      },
-      undefined,
-      (error) => {
-        console.error("GLB 読み込みエラー:", error);
-      }
-    );
-
-    // 120秒で1回転（2π rad）
-    const rotationSpeed = (2 * Math.PI) / 120.0; // rad / sec
-    const clock = new THREE.Clock();
-
-    // リサイズ対応
-    window.addEventListener("resize", () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height);
+      scene.add(model);
     });
 
-    // アニメーションループ
+    // === 自動回転（120秒で360°） ===
+    const rotationSpeed = (2 * Math.PI) / 120; // rad/sec
+    const clock = new THREE.Clock();
+
+    // === resize ===
+    window.addEventListener("resize", () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+
+    // === loop ===
     function animate() {
       requestAnimationFrame(animate);
-
-      const delta = clock.getDelta();
-
-      // 自動回転
-      if (model) {
-        model.rotation.y += rotationSpeed * delta; // 120秒で360°
-      }
-
+      const dt = clock.getDelta();
+      if (model) model.rotation.y += rotationSpeed * dt;
       controls.update();
       renderer.render(scene, camera);
     }
-
     animate();
   </script>
 </body>
