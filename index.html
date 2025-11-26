@@ -10,79 +10,102 @@
       background: #222;
     }
   </style>
+
+  <!-- three.js 本体 -->
+  <script src="https://unpkg.com/three@0.161.0/build/three.min.js"></script>
+  <!-- OrbitControls（ドラッグで回転・ホイールでズーム）-->
+  <script src="https://unpkg.com/three@0.161.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- GLTFLoader（.glb/.gltf ローダー）-->
+  <script src="https://unpkg.com/three@0.161.0/examples/js/loaders/GLTFLoader.js"></script>
 </head>
 <body>
-  <script type="module">
-    import * as THREE from "https://unpkg.com/three@0.161.0/build/three.module.js";
-    import { OrbitControls } from "https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js";
-    import { GLTFLoader } from "https://unpkg.com/three@0.161.0/examples/jsm/loaders/GLTFLoader.js";
+<script>
+  // ===== シーン =====
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x222222);
 
-    // === scene ===
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x222222);
+  // ===== カメラ =====
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+  );
+  camera.position.set(0, 1.3, 3);
 
-    // === camera ===
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 1.3, 3);
+  // ===== レンダラー =====
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  document.body.appendChild(renderer.domElement);
 
-    // === renderer ===
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    document.body.appendChild(renderer.domElement);
+  // ===== ライト =====
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+  dir.position.set(2, 4, 2);
+  scene.add(dir);
 
-    // === lights ===
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.0));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(2, 4, 2);
-    scene.add(dirLight);
+  // ===== コントロール（マウスで回転・ズーム）=====
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
 
-    // === controls (ユーザー操作は有効のまま。不要なら後で教えてください) ===
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+  // ===== モデル読み込み =====
+  const loader = new THREE.GLTFLoader();
+  let model = null;
 
-    // === load model ===
-    const loader = new GLTFLoader();
-    let model = null;
-
-    loader.load("kyara.glb", gltf => {
+  loader.load(
+    "kyara.glb",   // index.html と同じ階層に kyara.glb を置く
+    function (gltf) {
       model = gltf.scene;
 
-      // 中央に移動 & 標準スケール調整
+      // 中央合わせ & スケーリング
       const box = new THREE.Box3().setFromObject(model);
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
       box.getSize(size);
       box.getCenter(center);
-      model.position.sub(center);
+
+      model.position.sub(center);           // 原点に移動
       const maxAxis = Math.max(size.x, size.y, size.z);
-      model.scale.setScalar(2 / maxAxis);
+      const scale = 2.0 / maxAxis;          // 全体がだいたい高さ2になる
+      model.scale.setScalar(scale);
 
       scene.add(model);
-    });
-
-    // === 自動回転（120秒で360°） ===
-    const rotationSpeed = (2 * Math.PI) / 120; // rad/sec
-    const clock = new THREE.Clock();
-
-    // === resize ===
-    window.addEventListener("resize", () => {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
-    });
-
-    // === loop ===
-    function animate() {
-      requestAnimationFrame(animate);
-      const dt = clock.getDelta();
-      if (model) model.rotation.y += rotationSpeed * dt;
-      controls.update();
-      renderer.render(scene, camera);
+    },
+    undefined,
+    function (err) {
+      console.error("GLB 読み込みエラー:", err);
     }
-    animate();
-  </script>
+  );
+
+  // ===== 自動回転（120秒で 360°）=====
+  const rotationSpeed = (2 * Math.PI) / 120;  // rad / sec
+  const clock = new THREE.Clock();
+
+  // ===== リサイズ対応 =====
+  window.addEventListener("resize", function () {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+
+  // ===== ループ =====
+  function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = clock.getDelta();
+    if (model) {
+      model.rotation.y += rotationSpeed * dt; // 120秒で1回転
+    }
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+</script>
 </body>
 </html>
